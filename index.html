@@ -1,0 +1,113 @@
+<html>
+<head>
+  <title>.midi to Arduino</title>
+  <script src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@tonejs/midi"></script>
+</head>
+<body>
+  <div id="song"></div>
+  <script type="text/javascript">
+    const $song = $("#song")
+    
+    
+    async function parseMidi(songFile) {
+      
+      let completed = false
+      let notes = []
+      
+      const midi = await Midi.fromUrl(songFile)
+      
+      for(let trackId = 0; trackId < midi.tracks.length; trackId++) {
+        
+        const track = midi.tracks[trackId]
+        const trackNotes = track.notes
+        
+        trackNotes.forEach(note => {
+          let stripped_note = {}
+          
+          // console.log(note)
+          stripped_note.name = note.name
+          stripped_note.time = note.time
+          stripped_note.duration = note.duration
+          stripped_note.trackId = trackId
+          
+          notes.push(stripped_note)
+        })
+        
+        if(trackId + 1 == midi.tracks.length) {
+          notes.sort(sortByTime)
+          displayNotes(notes)
+        }
+      }
+    }
+    
+    function displayNotes(notes) {
+      
+      let arduinoCommands = [];
+      
+      let previousCommand = -1;
+      let previousTime = 0;
+      
+      for(let noteIndex = 0; noteIndex < notes.length; noteIndex++) {
+        const note = notes[noteIndex]
+        
+        const delay = Math.floor((note.time - previousTime) * 1000)
+        
+        if(noteIndex > 0 && delay > 0) {
+          arduinoCommands.push(`delay(${ delay });`)
+          previousCommand = -1
+        }
+        
+        if(previousCommand == note.trackId) {
+          continue
+          // arduinoCommands.pop()
+        }
+        
+        arduinoCommands.push(`freq${ note.trackId }.play(NOTE_${ note.name.replace("#", "S") }, ${ Math.floor(note.duration * 1000) });`)
+        previousCommand = note.trackId;
+        
+        previousTime = note.time
+      }
+      
+      for(let commandIndex = 0; commandIndex < arduinoCommands.length; commandIndex++) {
+        $song.append(arduinoCommands[commandIndex] + '<br>')
+      }
+    }
+    
+    function sortByTime(a, b) {
+      if (a.time < b.time){
+        return -1;
+      }
+      if (a.time > b.time){
+        return 1;
+      }
+      return 0;
+    }
+    
+    parseMidi("song.mid");
+
+  //   let previousTime = 0
+    
+  //   for(const trackIndex in song.tracks) {
+      
+  //     console.log(trackIndex)
+      
+  //     const notes = song.tracks[trackIndex].notes
+      
+  //     for(const noteIndex in notes) {
+        
+  //       const note = notes[noteIndex];
+  //       const delay = Math.floor((note.time - previousTime) * 1000)
+        
+  //       if(noteIndex > 0 && delay > 0) {$song.append(`delay(${ delay });<br>`)
+  //     }
+      
+  //     $song.append(`freq1.play(NOTE_${ note.name.replace("#", "S") }, ${ Math.floor(note.duration * 1000) });<br>`)
+      
+  //     previousTime = note.time
+  //   }
+  // }
+  
+</script>
+</body>
+</html>
